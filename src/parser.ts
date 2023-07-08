@@ -1,6 +1,6 @@
-import { ReadableStream, TransformStream } from 'stream/web';
+import { ReadableStream, TransformStream } from 'stream/web'
 
-export type JsonLine = unknown;
+export type JsonLine = unknown
 
 /**
  * Options for parser
@@ -10,14 +10,14 @@ export type ParserOptions<T extends JsonLine> = {
    * Parse each JSON line.
    * Errors are caught and passed to {@link ParserOptions.onError}
    */
-  parser?: (line: string) => T, 
+  parser?: (line: string) => T
   /**
    * Callback for errors thrown by the parser.
    * If not provided, errors will be silently ignored.
-   * 
+   *
    * Note that this might be called multiple times for a stream, for each line.
    */
-  onError?: (error: Error, line: string) => void;
+  onError?: (error: Error, line: string) => void
 }
 
 /**
@@ -26,7 +26,7 @@ export type ParserOptions<T extends JsonLine> = {
  * Note that this will throw an error if the line is not valid JSON
  */
 function parseJson<T extends JsonLine>(line: string): T {
-  return JSON.parse(line) as T;
+  return JSON.parse(line) as T
 }
 /**
  * Transform a stream of Uint8Array, decoding to string and splitting on newlines
@@ -38,37 +38,37 @@ function parseJson<T extends JsonLine>(line: string): T {
  * For usage see {@link JsonLineStream}
  */
 export function createLineStreamTransformer<T extends JsonLine>(
-  options: ParserOptions<T> = {}
+  options: ParserOptions<T> = {},
 ): TransformStream<Uint8Array, T> {
-  const parser = options.parser ?? parseJson;
-  const textDecoder = new TextDecoder();
-  let partialLine = '';
+  const parser = options.parser ?? parseJson
+  const textDecoder = new TextDecoder()
+  let partialLine = ''
   return new TransformStream<Uint8Array, T>({
     transform(chunk, controller) {
-      const textChunk = textDecoder.decode(chunk);
-      const lines = (partialLine + textChunk).split('\n');
+      const textChunk = textDecoder.decode(chunk)
+      const lines = (partialLine + textChunk).split('\n')
 
-      partialLine = lines.pop() ?? '';
+      partialLine = lines.pop() ?? ''
 
       lines.forEach((line) => {
         try {
-          const parsed = parser(line);
-          if (parsed) controller.enqueue(parsed);
+          const parsed = parser(line)
+          if (parsed) controller.enqueue(parsed)
         } catch (error) {
-          options.onError?.(error as Error, line);
+          options.onError?.(error as Error, line)
         }
-      });
+      })
     },
     flush(controller) {
-      if (partialLine === '') return;
+      if (partialLine === '') return
       try {
-        const parsed = parser(partialLine);
-        if (parsed) controller.enqueue(parsed);
+        const parsed = parser(partialLine)
+        if (parsed) controller.enqueue(parsed)
       } catch (error) {
-        options.onError?.(error as Error, partialLine);
+        options.onError?.(error as Error, partialLine)
       }
     },
-  });
+  })
 }
 
 /**
@@ -85,31 +85,29 @@ export function createLineStreamTransformer<T extends JsonLine>(
  */
 export function JsonLineStream<T extends JsonLine>(
   stream: ReadableStream<Uint8Array>,
-  options: ParserOptions<T> = {}
+  options: ParserOptions<T> = {},
 ): ReadableStream<T> {
-  const transformer = createLineStreamTransformer<T>(options);
-  return stream.pipeThrough(transformer);
+  const transformer = createLineStreamTransformer<T>(options)
+  return stream.pipeThrough(transformer)
 }
 
 /**
  * Aggregate a stream of JSON objects into an array
  */
-async function aggregateJsonStream<T extends JsonLine>(
-  stream: ReadableStream<T>,
-): Promise<T[]> {
-  const aggregate: T[] = [];
-  const reader = stream.getReader();
+async function aggregateJsonStream<T extends JsonLine>(stream: ReadableStream<T>): Promise<T[]> {
+  const aggregate: T[] = []
+  const reader = stream.getReader()
   async function readChunk() {
     return reader.read().then(async (result) => {
       if (result.done) {
-        return;
+        return
       }
-      aggregate.push(result.value);
-      await readChunk();
-    });
+      aggregate.push(result.value)
+      await readChunk()
+    })
   }
-  await readChunk();
-  return aggregate;
+  await readChunk()
+  return aggregate
 }
 
 /**
@@ -117,7 +115,7 @@ async function aggregateJsonStream<T extends JsonLine>(
  *
  * @param stream The ReadableStream to read the string data
  * @param options Parser and callbacks see {@link ParserOptions}
- * 
+ *
  * @example
  * // Get readable stream, such as from a `fetch` reponse.body
  * const data: RowType[] = await JsonLines<RowType>(stream);
@@ -125,8 +123,8 @@ async function aggregateJsonStream<T extends JsonLine>(
  */
 export async function JsonLines<T extends JsonLine>(
   stream: ReadableStream<Uint8Array>,
-  options: ParserOptions<T> = {}
+  options: ParserOptions<T> = {},
 ): Promise<T[]> {
-  const jsonStream = JsonLineStream<T>(stream, options);
-  return aggregateJsonStream(jsonStream);
+  const jsonStream = JsonLineStream<T>(stream, options)
+  return aggregateJsonStream(jsonStream)
 }
