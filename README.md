@@ -44,7 +44,7 @@ export type ParserOptions<T extends JsonLine> = {
    * Callback for errors thrown by the parser.
    * If not provided, errors will be silently ignored.
    * 
-   * Note that this might be called multiple times for each line.
+   * Note that this might be called multiple times for a stream, for each line.
    */
   onError?: (error: Error, line: string) => void;
 }
